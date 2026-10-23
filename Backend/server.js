@@ -6,12 +6,17 @@ import axios from 'axios';
 
 dotenv.config();
 
+const { SUPABASE_URL, SUPABASE_KEY } = process.env;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  throw new Error('SUPABASE_URL and SUPABASE_KEY must be configured in the environment');
+}
+
 const app = express();
-app.use(cors());
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173' }));
 app.use(express.json());
 
 // Cliente Supabase
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Cliente n8n (Axios)
 const n8nClient = axios.create({
@@ -59,7 +64,7 @@ app.post('/api/analisis-ia', async (req, res) => {
       accion: 'analisis_ia_stock'
     });
     res.status(200).json(response.data);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Error obteniendo análisis de IA' });
   }
 });

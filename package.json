@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "npm --prefix Frontend run dev",
+    "dev:backend": "npm --prefix Backend run dev",
+    "build": "npm --prefix Frontend run build",
+    "lint": "eslint Frontend/src Backend/server.js",
+    "preview": "npm --prefix Frontend run preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
