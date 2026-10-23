@@ -28,7 +28,7 @@ export default function Sidebar() {
         <div className="brand">
           <span className="brand-mark"><Coffee size={25} strokeWidth={2} aria-hidden="true" /></span>
           <div>
-            <p className="brand-title">Café Manager</p>
+            <p className="brand-title">Cafeter-IA ☕</p>
             <p className="brand-subtitle">Tu café, en orden</p>
           </div>
         </div>
@@ -43,7 +43,7 @@ export default function Sidebar() {
             <Leaf size={17} aria-hidden="true" />
             <p>Un espacio sencillo para cuidar cada detalle de tu cafetería.</p>
           </div>
-          <p className="sidebar-version">Café Manager · v1.0.0</p>
+          <p className="sidebar-version">Cafeter-IA · v1.0.0</p>
         </div>
       </aside>
       <nav className="mobile-nav" aria-label="Navegación principal">

@@ -50,7 +50,7 @@ function App() {
             <span className="topbar-dot" aria-hidden="true" />
             Gestión de cafetería
           </div>
-          <span className="topbar-label"><Coffee size={14} aria-hidden="true" /> Café Manager</span>
+          <span className="topbar-label"><Coffee size={14} aria-hidden="true" /> Cafeter-IA ☕</span>
         </div>
         <div className="page-content">
           <Routes>
