@@ -1,74 +1,84 @@
 import { useState } from 'react';
-import { Brain, Sparkles, Loader2 } from 'lucide-react';
+import { AlertCircle, Brain, Loader2, Sparkles } from 'lucide-react';
 import axios from 'axios';
 
 export default function AsistenteIA() {
   const [analisis, setAnalisis] = useState('');
+  const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
   const obtenerAnalisis = async () => {
+    if (cargando) return;
     setCargando(true);
     setAnalisis('');
+    setError('');
     try {
       const res = await axios.post('/api/analisis-ia');
-      // Asumimos que n8n/DeepSeek devuelve un objeto con la propiedad 'output' o 'sugerencia'
-      // Ajusta 'res.data.output' según la estructura exacta que devuelva tu agente n8n
-      setAnalisis(res.data.output || res.data.sugerencia || JSON.stringify(res.data, null, 2));
-    } catch (error) {
-      setAnalisis('Error al obtener el análisis. Verifica la conexión con n8n.');
+      const contenido = res.data?.output ?? res.data?.sugerencia ?? res.data;
+      const resultado = typeof contenido === 'string'
+        ? contenido
+        : JSON.stringify(contenido, null, 2);
+      if (!resultado) {
+        throw new Error('La respuesta del análisis está vacía.');
+      }
+      setAnalisis(resultado);
+    } catch (requestError) {
+      console.error('Error al obtener el análisis de IA', requestError);
+      setError('No se pudo obtener el análisis. Revisa la conexión con el servicio e inténtalo de nuevo.');
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <div>
-      <header className="mb-8">
-        <h2 className="text-3xl font-bold text-coffee-brown">Asistente de Compras (IA)</h2>
-        <p className="text-coffee-light mt-1">Deja que DeepSeek analice tu inventario y sugiera reabastecimientos.</p>
+    <section aria-labelledby="assistant-page-title">
+      <header className="page-heading">
+        <div>
+          <p className="page-eyebrow"><Sparkles size={15} aria-hidden="true" /> Recomendaciones</p>
+          <h1 className="page-title" id="assistant-page-title">Asistente de compras</h1>
+          <p className="page-description">Analiza el inventario y recibe sugerencias para planificar el reabastecimiento.</p>
+        </div>
       </header>
 
-      <div className="bg-white rounded-xl shadow-lg border border-coffee-beige p-8">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-3 bg-coffee-orange rounded-lg">
-            <Brain className="w-8 h-8 text-white" />
+      <div className="assistant-card surface-card">
+        <div className="assistant-card-content">
+          <div className="assistant-intro">
+            <span className="assistant-icon"><Brain size={28} aria-hidden="true" /></span>
+            <div>
+              <h2 className="assistant-title">Gerente de compras virtual</h2>
+              <p className="assistant-description">Análisis de existencias mediante el servicio de IA conectado.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-coffee-brown">Gerente de Compras Virtual</h3>
-            <p className="text-coffee-light text-sm">Impulsado por DeepSeek</p>
-          </div>
-        </div>
 
-        <button
-          onClick={obtenerAnalisis}
-          disabled={cargando}
-          className="w-full sm:w-auto px-6 py-3 bg-coffee-brown text-white font-semibold rounded-lg hover:bg-coffee-light transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
-        >
-          {cargando ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Analizando Inventario...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-5 h-5" />
-              Generar Sugerencia de Compra
-            </>
+          {error && (
+            <div className="notice notice-error page-notice" role="alert">
+              <AlertCircle size={18} aria-hidden="true" />
+              <span>{error}</span>
+            </div>
           )}
-        </button>
 
-        {analisis && (
-          <div className="mt-8 p-6 bg-coffee-cream rounded-lg border-l-4 border-coffee-orange">
-            <h4 className="font-bold text-coffee-brown mb-3 flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-coffee-orange" />
-              Recomendación de la IA:
-            </h4>
-            <p className="text-coffee-brown whitespace-pre-wrap leading-relaxed">
-              {analisis}
-            </p>
-          </div>
-        )}
+          <button
+            type="button"
+            className="primary-button"
+            onClick={obtenerAnalisis}
+            disabled={cargando}
+            aria-busy={cargando}
+          >
+            {cargando ? (
+              <><Loader2 size={18} aria-hidden="true" /> Analizando inventario…</>
+            ) : (
+              <><Sparkles size={17} aria-hidden="true" /> Generar sugerencia de compra</>
+            )}
+          </button>
+
+          {analisis && (
+            <section className="analysis-result" aria-labelledby="analysis-result-title" aria-live="polite">
+              <h3 id="analysis-result-title"><Sparkles size={15} aria-hidden="true" /> Recomendación</h3>
+              <p>{analisis}</p>
+            </section>
+          )}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }

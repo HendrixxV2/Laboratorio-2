@@ -1,76 +1,146 @@
-import { useEffect, useState } from 'react';
-import { Package, AlertTriangle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { AlertCircle, AlertTriangle, Check, Package, RefreshCw } from 'lucide-react';
 import axios from 'axios';
+
+async function solicitarInsumos() {
+  const res = await axios.get('/api/insumos');
+  if (!Array.isArray(res.data)) {
+    throw new Error('La respuesta del inventario no tiene el formato esperado.');
+  }
+  return res.data;
+}
 
 export default function Inventario() {
   const [insumos, setInsumos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    const fetchInsumos = async () => {
-      try {
-        const res = await axios.get('/api/insumos');
-        setInsumos(res.data);
-      } catch (error) {
-        console.error("Error al cargar inventario", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchInsumos();
+  const cargarInsumos = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setInsumos(await solicitarInsumos());
+    } catch (requestError) {
+      console.error('Error al cargar inventario', requestError);
+      setError('No se pudo cargar el inventario. Revisa tu conexión e inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  if (loading) return <div className="text-coffee-brown text-lg animate-pulse">Cargando inventario...</div>;
+  useEffect(() => {
+    let vigente = true;
+    solicitarInsumos()
+      .then((data) => {
+        if (vigente) setInsumos(data);
+      })
+      .catch((requestError) => {
+        console.error('Error al cargar inventario', requestError);
+        if (vigente) setError('No se pudo cargar el inventario. Revisa tu conexión e inténtalo de nuevo.');
+      })
+      .finally(() => {
+        if (vigente) setLoading(false);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  const insumosBajos = insumos.filter((insumo) => Number(insumo.stock_actual) <= Number(insumo.stock_minimo)).length;
 
   return (
-    <div>
-      <header className="mb-8">
-        <h2 className="text-3xl font-bold text-coffee-brown">Estado del Inventario</h2>
-        <p className="text-coffee-light mt-1">Monitoreo en tiempo real de insumos y materia prima.</p>
+    <section aria-labelledby="inventory-title">
+      <header className="page-heading">
+        <div>
+          <p className="page-eyebrow"><Package size={15} aria-hidden="true" /> Control de existencias</p>
+          <h1 className="page-title" id="inventory-title">Estado del inventario</h1>
+          <p className="page-description">Consulta tus insumos y detecta a tiempo lo que necesita reabastecimiento.</p>
+        </div>
+        <button className="text-button" type="button" onClick={cargarInsumos} disabled={loading}>
+          <RefreshCw size={15} aria-hidden="true" />
+          {loading ? 'Actualizando' : 'Actualizar'}
+        </button>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {insumos.map((insumo) => {
-          const porcentaje = (insumo.stock_actual / insumo.stock_minimo) * 100;
-          const esBajo = insumo.stock_actual <= insumo.stock_minimo;
+      {error && (
+        <div className="notice notice-error page-notice" role="alert">
+          <AlertCircle size={18} aria-hidden="true" />
+          <span>{error}</span>
+          <button className="text-button" type="button" onClick={cargarInsumos} disabled={loading}>
+            Reintentar
+          </button>
+        </div>
+      )}
 
-          return (
-            <div key={insumo.id} className={`p-6 rounded-xl shadow-md border transition-transform hover:scale-[1.02] ${
-              esBajo ? 'bg-red-50 border-red-200' : 'bg-white border-coffee-beige'
-            }`}>
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-coffee-brown capitalize">{insumo.nombre}</h3>
-                  <p className="text-sm text-coffee-light">Stock Mínimo: {insumo.stock_minimo}</p>
+      {!error && !loading && insumos.length > 0 && (
+        <div className="inventory-summary" aria-live="polite">
+          <span className="summary-count"><strong>{insumos.length}</strong> {insumos.length === 1 ? 'insumo registrado' : 'insumos registrados'}</span>
+          <span className="summary-count">
+            {insumosBajos > 0 ? <AlertTriangle size={14} aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
+            <strong>{insumosBajos}</strong> por reabastecer
+          </span>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="loading-state" role="status" aria-live="polite">
+          <RefreshCw size={23} aria-hidden="true" />
+          <p>Cargando inventario…</p>
+        </div>
+      ) : error ? null : insumos.length === 0 ? (
+        <div className="empty-state" role="status">
+          <span className="empty-state-icon"><Package size={23} aria-hidden="true" /></span>
+          <h3>Aún no hay insumos</h3>
+          <p>Cuando haya insumos registrados, aparecerán aquí con su nivel de existencias.</p>
+        </div>
+      ) : (
+        <div className="inventory-grid">
+          {insumos.map((insumo) => {
+            const cantidad = Number(insumo.stock_actual);
+            const minimo = Number(insumo.stock_minimo);
+            const stockActual = Number.isFinite(cantidad) ? cantidad : 0;
+            const stockMinimo = Number.isFinite(minimo) ? minimo : 0;
+            const esBajo = stockActual <= stockMinimo;
+            const porcentaje = stockMinimo > 0
+              ? Math.max(0, Math.min((stockActual / stockMinimo) * 100, 100))
+              : stockActual > 0 ? 100 : 0;
+            const nombre = insumo.nombre || 'Insumo sin nombre';
+
+            return (
+              <article key={insumo.id} className={`inventory-card surface-card${esBajo ? ' is-low' : ''}`}>
+                <div className="inventory-card-top">
+                  <div>
+                    <h2 className="inventory-name">{nombre}</h2>
+                    <p className="inventory-minimum">Mínimo: {insumo.stock_minimo}</p>
+                  </div>
+                  <span className="inventory-icon"><Package size={20} aria-hidden="true" /></span>
                 </div>
-                <Package className={`w-6 h-6 ${esBajo ? 'text-red-500' : 'text-coffee-orange'}`} />
-              </div>
-
-              <div className="mb-2">
-                <span className={`text-3xl font-bold ${esBajo ? 'text-red-600' : 'text-coffee-brown'}`}>
-                  {insumo.stock_actual}
-                </span>
-                <span className="text-sm text-coffee-light ml-2">unidades</span>
-              </div>
-
-              {/* Barra de progreso */}
-              <div className="w-full bg-coffee-beige rounded-full h-2.5 mt-4">
-                <div 
-                  className={`h-2.5 rounded-full ${esBajo ? 'bg-red-500' : 'bg-coffee-orange'}`} 
-                  style={{ width: `${Math.min(porcentaje, 100)}%` }}
-                ></div>
-              </div>
-              
-              {esBajo && (
-                <div className="flex items-center gap-2 mt-3 text-red-600 text-sm font-medium">
-                  <AlertTriangle className="w-4 h-4" />
-                  Stock por debajo del mínimo
+                <div className="inventory-quantity">
+                  <strong>{insumo.stock_actual}</strong>
+                  <span>unidades</span>
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                <div
+                  className="stock-track"
+                  role="progressbar"
+                  aria-label={`Nivel de stock de ${nombre}`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(porcentaje)}
+                >
+                  <div className="stock-fill" style={{ width: `${porcentaje}%` }} />
+                </div>
+                <div className="stock-status">
+                  {esBajo ? (
+                    <><AlertTriangle size={14} aria-hidden="true" /> Stock en el mínimo o por debajo</>
+                  ) : (
+                    <><Check size={14} aria-hidden="true" /> Existencias por encima del mínimo</>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
